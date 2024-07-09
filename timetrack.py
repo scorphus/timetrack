@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.12
+#!/usr/bin/env python
 # vim:ts=4:sts=4:sw=4:tw=80:et
 # pylint: disable=consider-using-f-string,missing-docstring,invalid-name,redefined-builtin,redefined-outer-name
 
