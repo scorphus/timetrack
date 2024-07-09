@@ -75,9 +75,7 @@ def randomMessage(type, *args):
         if len(args) > 0:
             arrivalTime = args[0]
             if arrivalTime.hour <= 7:
-                messageList.append(
-                    "The early bird catches the worm. Welcome and have a nice day!"
-                )
+                messageList.append("The early bird catches the worm. Welcome and have a nice day!")
             elif arrivalTime.hour <= 9:
                 messageList.append("Good morning.")
             elif arrivalTime.hour >= 10:
@@ -90,9 +88,7 @@ def randomMessage(type, *args):
                 messageList.append("Last day of the week! Almost done! Keep going!")
                 messageList.append("Just a couple more hours until weekend. Have fun!")
             elif arrivalTime.weekday() == 5:  # Saturday
-                messageList.append(
-                    "Oh, so they made you work on Saturday? I'm sorry :/"
-                )
+                messageList.append("Oh, so they made you work on Saturday? I'm sorry :/")
                 messageList.append("Saturday, meh. Hang in there, it'll be over soon.")
 
         messageList.append("Welcome and have a nice day!")
@@ -111,9 +107,7 @@ def randomMessage(type, *args):
         if breakTime is not None and workStartTime is not None:
             duration = breakTime - workStartTime
             durationHours = int(duration.total_seconds() // 3600)
-            durationMinutes = int(
-                (duration.total_seconds() - (durationHours * 3600)) // 60
-            )
+            durationMinutes = int((duration.total_seconds() - (durationHours * 3600)) // 60)
             msgText = ""
             if durationHours > 1:
                 msgText += "{:d} hours".format(durationHours)
@@ -144,17 +138,14 @@ def randomMessage(type, *args):
             if breakTime.hour >= 11 and breakTime.hour <= 13:
                 messageList.append("{:%H:%M}. A good time for lunch.".format(breakTime))
             if breakTime.hour < 11:
-                messageList.append(
-                    "{0.hour} o'clock. Breakfast time!".format(breakTime)
-                )
+                messageList.append("{0.hour} o'clock. Breakfast time!".format(breakTime))
             if breakTime.hour > 13:
                 messageList.append("Coffee?")
                 messageList.append("Good idea, take a break and relax a little.")
 
         messageList.append("Enjoy your break!")
         messageList.append(
-            "Relax a little and all your problems will have"
-            " gotten simpler once you're back :-)"
+            "Relax a little and all your problems will have gotten simpler once you're back :-)"
         )
         messageList.append("Bye bye!")
 
@@ -171,16 +162,10 @@ def randomMessage(type, *args):
 
         if resumeTime is not None:
             if resumeTime.hour <= 12:
-                messageList.append(
-                    "With renewed vigour into the rest of the day! Welcome back."
-                )
-                messageList.append(
-                    "The rest of the day right ahead, but with fresh strength."
-                )
+                messageList.append("With renewed vigour into the rest of the day! Welcome back.")
+                messageList.append("The rest of the day right ahead, but with fresh strength.")
             elif resumeTime.hour >= 15:
-                messageList.append(
-                    "Just a few more hours. Hang in, closing time is near!"
-                )
+                messageList.append("Just a few more hours. Hang in, closing time is near!")
                 messageList.append("Almost there. Just a few more minutes.")
 
         if resumeTime is not None and breakStartTime is not None:
@@ -197,27 +182,20 @@ def randomMessage(type, *args):
             messageList.append(msgText)
 
             if durationMinutes < 30:
-                messageList.append(
-                    "Quick coffee break finished? Back to work, getting things done!"
-                )
-                messageList.append(
-                    "That break certainly was a quick one! Welcome back!"
-                )
+                messageList.append("Quick coffee break finished? Back to work, getting things done!")
+                messageList.append("That break certainly was a quick one! Welcome back!")
             elif durationMinutes >= 30 and durationMinutes < 45:
                 messageList.append("Average size break, now back to work.")
             else:
                 messageList.append(
-                    "That was a pretty long break. You can pull"
-                    " off more then 9 hours today."
+                    "That was a pretty long break. You can pull off more then 9 hours today."
                 )
                 messageList.append(
                     f"Pretty extensive {durationMinutes} minute break. Hope"
                     " you're feeling refreshed now :)"
                 )
 
-        messageList.append(
-            "Welcome back at your desk. Your laptop has been missing you."
-        )
+        messageList.append("Welcome back at your desk. Your laptop has been missing you.")
         messageList.append("Back into work! Enjoy!")
         messageList.append("Welcome back.")
 
@@ -231,9 +209,7 @@ def randomMessage(type, *args):
 
         if endTime is not None:
             if endTime.hour <= 14:
-                messageList.append(
-                    "Going home early today? Go ahead, I'm sure you earned it."
-                )
+                messageList.append("Going home early today? Go ahead, I'm sure you earned it.")
                 messageList.append("Short work day, enjoy your afternoon.")
             elif endTime.hour > 14 and endTime.hour < 18:
                 messageList.append("Have a nice evening.")
@@ -251,15 +227,10 @@ def randomMessage(type, *args):
                 messageList.append("Finally, this week has come to an end.")
                 messageList.append("Fuck this shit, it's Friday and I'm going home!")
             elif endTime.weekday() == 5:  # Saturday
-                messageList.append(
-                    "Ugh, somebody made you come in on"
-                    " Saturday. Enjoy your Sunday then."
-                )
+                messageList.append("Ugh, somebody made you come in on Saturday. Enjoy your Sunday then.")
                 messageList.append("About time the week was over, isn't it?")
 
-        messageList.append(
-            "A good time to leave. Because it's always a good time to do that. :)"
-        )
+        messageList.append("A good time to leave. Because it's always a good time to do that. :)")
         messageList.append("You're right, go home. Tomorrow's yet another day.")
 
     ######################################################################
@@ -314,9 +285,7 @@ def dbSetup():
     Create a new SQLite database in the user's home, creating and initializing
     the database if it doesn't exist. Returns an sqlite3 connection object.
     """
-    con = sqlite3.connect(
-        os.path.expanduser("~/.timetrack.db"), detect_types=sqlite3.PARSE_DECLTYPES
-    )
+    con = sqlite3.connect(os.path.expanduser("~/.timetrack.db"), detect_types=sqlite3.PARSE_DECLTYPES)
     con.row_factory = sqlite3.Row
     sqlite3.register_adapter(datetime, adapt_datetime_iso)
     sqlite3.register_converter("timestamp", convert_datetime)
@@ -442,8 +411,7 @@ def endTracking(con):
 def getEntries(con, d):
     # Get the arrival for the date
     cur = con.execute(
-        "SELECT ts FROM times WHERE type = ? AND ts >= ? AND ts "
-        "< ? ORDER BY ts ASC LIMIT 1",
+        "SELECT ts FROM times WHERE type = ? AND ts >= ? AND ts < ? ORDER BY ts ASC LIMIT 1",
         (
             ACT_ARRIVE,
             datetime.combine(d, time()),
@@ -545,9 +513,7 @@ def weekStatistics(con, offset=0):
                 message("   date         hours         diff ")
                 message("  ----------   -----------   ------")
             message(
-                "  {:%d.%m.%Y}   {:>2d} h {:>02d} min    {: =+1.2f}".format(
-                    current, totalHours, totalMinutes, timedeltaHours
-                )
+                f"  {current:%d.%m.%Y}   {totalHours:>2d} h {totalMinutes:>02d} min    {timedeltaHours:=+1.2f}"
             )
         except ProgramAbortError:
             if current.weekday() < 5:
@@ -556,7 +522,7 @@ def weekStatistics(con, offset=0):
                     headerPrinted = True
                     message("   date         hours         diff ")
                     message("  ----------   -----------   ------")
-                message("  {:%d.%m.%Y}    -              -".format(current))
+                message(f"  {current:%d.%m.%Y}    -              -")
 
         current += timedelta(days=1)
 
@@ -566,23 +532,13 @@ def weekStatistics(con, offset=0):
     message("  ----------   -----------   ------")
 
     if daysSoFar < 5:
-        # The week isn't over, compare your current state against the ideal
-        # rate
+        # The week isn't over, compare your current state against the ideal rate
         expectation = dailyHours * daysSoFar
         expectationHours = int(expectation.total_seconds() // (60 * 60))
         expectationMinutes = int((expectation.total_seconds() % 3600) // 60)
-        message(
-            "   Expected:   {:>2d} h {:>02d} min".format(
-                expectationHours, expectationMinutes
-            )
-        )
+        message("   Expected:   {:>2d} h {:>02d} min".format(expectationHours, expectationMinutes))
     message(
-        "    Week {:>02d}:   {:>2d} h {:>02d} min    {: =+2.2f}".format(
-            startOfWeek.isocalendar()[1],
-            weekTotalHours,
-            weekTotalMinutes,
-            weekExtraHours,
-        )
+        f"    Week {startOfWeek.isocalendar()[1]:>02d}:   {weekTotalHours:>2d} h {weekTotalMinutes:>02d} min    {weekExtraHours:=+2.2f}"
     )
     if daysSoFar < 5 or (daysSoFar == 5 and currentlyHere):
         # Calculate avg. remaining work time per day
@@ -591,21 +547,13 @@ def weekStatistics(con, offset=0):
         remainingHours = int(remaining.total_seconds() // (60 * 60))
         remainingMinutes = int((remaining.total_seconds() % 3600) // 60)
         message("  ----------   -----------   ------")
-        message(
-            "  Remaining:   {:>2d} h {:>02d} min".format(
-                remainingHours, remainingMinutes
-            )
-        )
+        message(f"  Remaining:   {remainingHours:>2d} h {remainingMinutes:>02d} min")
         if daysSoFar < 4:
             # Remaining per day
             remainingPerDay = remaining / (5 - daysSoFar)
             remainingPerDayHours = int(remainingPerDay.total_seconds() // (60 * 60))
             remainingPerDayMinutes = int((remainingPerDay.total_seconds() % 3600) // 60)
-            message(
-                "      Daily:   {:>2d} h {:>02d} min".format(
-                    remainingPerDayHours, remainingPerDayMinutes
-                )
-            )
+            message(f"      Daily:   {remainingPerDayHours:>2d} h {remainingPerDayMinutes:>02d} min")
 
 
 def overallStatistics(con, weeks):
@@ -654,15 +602,11 @@ def overallStatistics(con, weeks):
 
 parser = argparse.ArgumentParser(description="Track your work time")
 
-commands = parser.add_subparsers(
-    title="subcommands", dest="action", help="description", metavar="action"
-)
+commands = parser.add_subparsers(title="subcommands", dest="action", help="description", metavar="action")
 parser_morning = commands.add_parser("morning", help="Start a new day")
 parser_break = commands.add_parser("break", help="Take a break from working")
 parser_resume = commands.add_parser("resume", help="Resume working")
-parser_continue = commands.add_parser(
-    "continue", help='Resume working, alias of "resume"'
-)
+parser_continue = commands.add_parser("continue", help='Resume working, alias of "resume"')
 parser_closing = commands.add_parser("closing", help="End your work day")
 parser_day = commands.add_parser("day", help="Print daily statistics")
 parser_day.add_argument(
@@ -670,8 +614,7 @@ parser_day.add_argument(
     nargs="?",
     default=0,
     type=int,
-    help="Offset in days to the current one to analyze. "
-    "Note only negative values make sense here.",
+    help="Offset in days to the current one to analyze. Note only negative values make sense here.",
 )
 parser_week = commands.add_parser("week", help="Print weekly statistics")
 parser_week.add_argument(
@@ -679,8 +622,7 @@ parser_week.add_argument(
     nargs="?",
     default=0,
     type=int,
-    help="Offset in weeks to the current one to analyze. "
-    "Note only negative values make sense here.",
+    help="Offset in weeks to the current one to analyze. Note only negative values make sense here.",
 )
 parser_summary = commands.add_parser("summary", help="Print overall statistics")
 parser_summary.add_argument(
