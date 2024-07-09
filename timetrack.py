@@ -187,9 +187,7 @@ def randomMessage(type, *args):
             elif durationMinutes >= 30 and durationMinutes < 45:
                 messageList.append("Average size break, now back to work.")
             else:
-                messageList.append(
-                    "That was a pretty long break. You can pull off more then 9 hours today."
-                )
+                messageList.append("That was a pretty long break. You can pull off more then 9 hours today.")
                 messageList.append(
                     f"Pretty extensive {durationMinutes} minute break. Hope"
                     " you're feeling refreshed now :)"
