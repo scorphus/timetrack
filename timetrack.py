@@ -6,6 +6,7 @@ import os
 import random
 import sqlite3
 import sys
+from collections.abc import Callable
 from datetime import date, datetime, time, timedelta
 
 ACT_ARRIVE = "arrive"
@@ -143,9 +144,7 @@ def randomMessage(type, *args):
                 messageList.append("Good idea, take a break and relax a little.")
 
         messageList.append("Enjoy your break!")
-        messageList.append(
-            "Relax a little and all your problems will have gotten simpler once you're back :-)"
-        )
+        messageList.append("Relax a little and all your problems will have gotten simpler once you're back :-)")
         messageList.append("Bye bye!")
 
     ################
@@ -188,8 +187,7 @@ def randomMessage(type, *args):
             else:
                 messageList.append("That was a pretty long break. You can pull off more then 9 hours today.")
                 messageList.append(
-                    f"Pretty extensive {durationMinutes} minute break. Hope"
-                    " you're feeling refreshed now :)"
+                    f"Pretty extensive {durationMinutes} minute break. Hope" " you're feeling refreshed now :)"
                 )
 
         messageList.append("Welcome back at your desk. Your laptop has been missing you.")
@@ -214,9 +212,7 @@ def randomMessage(type, *args):
             else:
                 messageList.append("Leaving late today?")
                 messageList.append(
-                    "Did you just stay because the job was"
-                    " interesting or did something have to get"
-                    " done today?"
+                    "Did you just stay because the job was" " interesting or did something have to get" " done today?"
                 )
                 messageList.append("Finally. Have a good night's sleep!")
             if endTime.weekday() == 4:  # Friday
@@ -509,9 +505,7 @@ def weekStatistics(con, offset=0):
                 headerPrinted = True
                 message("   date         hours         diff ")
                 message("  ----------   -----------   ------")
-            message(
-                f"  {current:%d.%m.%Y}   {totalHours:>2d} h {totalMinutes:>02d} min    {timedeltaHours:=+1.2f}"
-            )
+            message(f"  {current:%d.%m.%Y}   {totalHours:>2d} h {totalMinutes:>02d} min    {timedeltaHours:=+1.2f}")
         except ProgramAbortError:
             if current.weekday() < 5:
                 # For non-weekend days, print a message
@@ -633,7 +627,7 @@ parser_summary.add_argument(
 
 args = parser.parse_args()
 
-actions = {
+actions: dict[str, tuple[Callable, list[str]]] = {
     "morning": (startTracking, []),
     "break": (suspendTracking, []),
     "resume": (resumeTracking, []),
@@ -650,13 +644,11 @@ if args.action not in actions:
 
 try:
     connection = dbSetup()
-
     extraArgs = {}
     handler, extraArgNames = actions[args.action]
     for extraArgName in extraArgNames:
         if extraArgName in args:
             extraArgs[extraArgName] = getattr(args, extraArgName)
-
     handler(connection, **extraArgs)
     sys.exit(0)
 except ProgramAbortError as e:
