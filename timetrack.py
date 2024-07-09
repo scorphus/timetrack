@@ -28,10 +28,7 @@ WEEK_HOURS = 40
 
 
 class ProgramAbortError(Exception):
-    """
-    Exception class that wraps a critical error and encapsules it for
-    pretty-printing of the error message.
-    """
+    """Exception class that wraps a critical error and encapsules it for pretty-printing of the error message."""
 
     def __init__(self, message, cause):
         self.message = message
@@ -45,23 +42,17 @@ class ProgramAbortError(Exception):
 
 
 def message(msg):
-    """
-    Print an informational message
-    """
+    """Print an informational message"""
     print(msg)
 
 
 def warning(msg):
-    """
-    Print a warning message
-    """
+    """Print a warning message"""
     print("Warning: {}".format(msg), file=sys.stderr)
 
 
 def error(msg, ex):
-    """
-    Print an error message and abort execution
-    """
+    """Print an error message and abort execution"""
     raise ProgramAbortError(msg, ex)
 
 
@@ -187,7 +178,7 @@ def randomMessage(type, *args):
             else:
                 messageList.append("That was a pretty long break. You can pull off more then 9 hours today.")
                 messageList.append(
-                    f"Pretty extensive {durationMinutes} minute break. Hope" " you're feeling refreshed now :)"
+                    f"Pretty extensive {durationMinutes} minute break. Hope you're feeling refreshed now :)"
                 )
 
         messageList.append("Welcome back at your desk. Your laptop has been missing you.")
@@ -212,7 +203,7 @@ def randomMessage(type, *args):
             else:
                 messageList.append("Leaving late today?")
                 messageList.append(
-                    "Did you just stay because the job was" " interesting or did something have to get" " done today?"
+                    "Did you just stay because the job was interesting or did something have to get done today?"
                 )
                 messageList.append("Finally. Have a good night's sleep!")
             if endTime.weekday() == 4:  # Friday
@@ -274,10 +265,8 @@ def convert_datetime(val):
 
 
 def dbSetup():
-    """
-    Create a new SQLite database in the user's home, creating and initializing
-    the database if it doesn't exist. Returns an sqlite3 connection object.
-    """
+    """Create a new SQLite database in the user's home, creating and initializing
+    the database if it doesn't exist. Returns an sqlite3 connection object."""
     con = sqlite3.connect(os.path.expanduser("~/.timetrack.db"), detect_types=sqlite3.PARSE_DECLTYPES)
     con.row_factory = sqlite3.Row
     sqlite3.register_adapter(datetime, adapt_datetime_iso)
@@ -337,9 +326,7 @@ def getFirstTime(con):
 
 
 def startTracking(con):
-    """
-    Start your day: Records your arrival time in the morning.
-    """
+    """Start your day: Records your arrival time in the morning."""
     # Make sure you're not already at work.
     lastType = getLastType(con)
     if lastType is not None and lastType != ACT_LEAVE:
@@ -351,13 +338,9 @@ def startTracking(con):
 
 
 def suspendTracking(con):
-    """
-    Suspend tracking for today: Records the start of your break time. There can
-    be an infinite number of breaks per day.
-    """
-
-    # Make sure you're currently working; can't suspend if you weren't even
-    # working
+    """Suspend tracking for today: Records the start of your break time. There can
+    be an infinite number of breaks per day."""
+    # Make sure you're currently working; can't suspend if you weren't even working
     lastType = getLastType(con)
     lastTime = getLastTime(con)
     if lastType not in [ACT_ARRIVE, ACT_RESUME]:
@@ -369,13 +352,9 @@ def suspendTracking(con):
 
 
 def resumeTracking(con):
-    """
-    Resume tracking after a break. Records the end time of your break. There
-    can be an infinite number of breaks per day.
-    """
-
-    # Make sure you're currently taking a break; can't resume if you were not
-    # taking a break
+    """Resume tracking after a break. Records the end time of your break. There
+    can be an infinite number of breaks per day."""
+    # Make sure you're currently taking a break; can't resume if you were not taking a break
     lastType = getLastType(con)
     lastTime = getLastTime(con)
     if lastType != ACT_BREAK:
@@ -387,11 +366,8 @@ def resumeTracking(con):
 
 
 def endTracking(con):
-    """
-    End tracking for the day. Records the time of your leave.
-    """
-    # Make sure you've actually been at work. Can't leave if you're not even
-    # here!
+    """End tracking for the day. Records the time of your leave."""
+    # Make sure you've actually been at work. Can't leave if you're not even here!
     lastType = getLastType(con)
     if lastType not in [ACT_ARRIVE, ACT_RESUME]:
         error(randomMessage(MSG_ERR_NOT_WORKING, lastType), None)
@@ -405,11 +381,7 @@ def getEntries(con, d):
     # Get the arrival for the date
     cur = con.execute(
         "SELECT ts FROM times WHERE type = ? AND ts >= ? AND ts < ? ORDER BY ts ASC LIMIT 1",
-        (
-            ACT_ARRIVE,
-            datetime.combine(d, time()),
-            datetime.combine(d + timedelta(days=1), time()),
-        ),
+        (ACT_ARRIVE, datetime.combine(d, time()), datetime.combine(d + timedelta(days=1), time())),
     )
     res = cur.fetchone()
     if not res:
@@ -433,17 +405,11 @@ def getWorkTimeForDay(con, d=date.today()):
     for type, ts in getEntries(con, d):
         if not arrival:
             if type not in [ACT_ARRIVE, ACT_RESUME]:
-                error(
-                    f"Expected arrival while computing presence time, got {type} at {ts}",
-                    None,
-                )
+                error(f"Expected arrival while computing presence time, got {type} at {ts}", None)
             arrival = ts
         else:
             if type not in [ACT_BREAK, ACT_LEAVE]:
-                error(
-                    f"Expected break/leave while computing presence time, got {type} at {ts}",
-                    None,
-                )
+                error(f"Expected break/leave while computing presence time, got {type} at {ts}", None)
             summaryTime += ts - arrival
             arrival = None
     if arrival:
@@ -467,8 +433,7 @@ def dayStatistics(con, offset=0):
         message("You are currently at work.")
     message(
         "You have worked {} h {} min".format(
-            int(totalTime.total_seconds() // (60 * 60)),
-            int((totalTime.total_seconds() % 3600) // 60),
+            int(totalTime.total_seconds() // (60 * 60)), int((totalTime.total_seconds() % 3600) // 60)
         )
     )
 
@@ -556,8 +521,7 @@ def overallStatistics(con, weeks):
         if firstEntry is not None:
             weeks = (today - firstEntry.date()).days // 7 + 1
         else:
-            # if there is no entry yet, default to showing the entire current
-            # year
+            # if there is no entry yet, default to showing the entire current year
             weeks = today.isocalendar()[1]
     startOfPeriod = today - timedelta(days=today.weekday()) - timedelta(weeks=weeks)
     endOfPeriod = today
