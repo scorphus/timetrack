@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # vim:ts=4:sts=4:sw=4:tw=80:et
-# pylint: disable=consider-using-f-string,missing-docstring,invalid-name,redefined-builtin,redefined-outer-name
 
 import argparse
 import os
@@ -535,8 +534,9 @@ def weekStatistics(con, offset=0):
         expectationHours = int(expectation.total_seconds() // (60 * 60))
         expectationMinutes = int((expectation.total_seconds() % 3600) // 60)
         message("   Expected:   {:>2d} h {:>02d} min".format(expectationHours, expectationMinutes))
+    week_number = startOfWeek.isocalendar()[1]
     message(
-        f"    Week {startOfWeek.isocalendar()[1]:>02d}:   {weekTotalHours:>2d} h {weekTotalMinutes:>02d} min    {weekExtraHours:=+2.2f}"
+        f"    Week {week_number:>02d}:   {weekTotalHours:>2d} h {weekTotalMinutes:>02d} min    {weekExtraHours:=+2.2f}"
     )
     if daysSoFar < 5 or (daysSoFar == 5 and currentlyHere):
         # Calculate avg. remaining work time per day
