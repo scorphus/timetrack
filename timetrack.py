@@ -24,7 +24,8 @@ MSG_SUCCESS_RESUME = 1 << 5
 MSG_SUCCESS_LEAVE = 1 << 6
 
 
-WEEK_HOURS = 40
+DAY_HOURS = 8
+WEEK_HOURS = DAY_HOURS * 5
 
 
 class ProgramAbortError(Exception):
@@ -267,7 +268,7 @@ def convert_datetime(val):
 def dbSetup():
     """Create a new SQLite database in the user's home, creating and initializing
     the database if it doesn't exist. Returns an sqlite3 connection object."""
-    con = sqlite3.connect(os.path.expanduser("~/.timetrack.db"), detect_types=sqlite3.PARSE_DECLTYPES)
+    con = sqlite3.connect(os.path.expanduser("~/timetrack.db"), detect_types=sqlite3.PARSE_DECLTYPES)
     con.row_factory = sqlite3.Row
     sqlite3.register_adapter(datetime, adapt_datetime_iso)
     sqlite3.register_converter("timestamp", convert_datetime)
@@ -325,19 +326,19 @@ def getFirstTime(con):
     return row["ts"]
 
 
-def startTracking(con):
+def startTracking(con, offset=0):
     """Start your day: Records your arrival time in the morning."""
     # Make sure you're not already at work.
     lastType = getLastType(con)
     if lastType is not None and lastType != ACT_LEAVE:
         error(randomMessage(MSG_ERR_HAVE_NOT_LEFT), None)
 
-    arrivalTime = datetime.now()
+    arrivalTime = datetime.now() + timedelta(minutes=offset)
     addEntry(con, ACT_ARRIVE, arrivalTime)
     message(randomMessage(MSG_SUCCESS_ARRIVAL, arrivalTime))
 
 
-def suspendTracking(con):
+def suspendTracking(con, offset=0):
     """Suspend tracking for today: Records the start of your break time. There can
     be an infinite number of breaks per day."""
     # Make sure you're currently working; can't suspend if you weren't even working
@@ -346,12 +347,12 @@ def suspendTracking(con):
     if lastType not in [ACT_ARRIVE, ACT_RESUME]:
         error(randomMessage(MSG_ERR_NOT_WORKING, lastType), None)
 
-    breakTime = datetime.now()
+    breakTime = datetime.now() + timedelta(minutes=offset)
     addEntry(con, ACT_BREAK, breakTime)
     message(randomMessage(MSG_SUCCESS_BREAK, breakTime, lastTime))
 
 
-def resumeTracking(con):
+def resumeTracking(con, offset=0):
     """Resume tracking after a break. Records the end time of your break. There
     can be an infinite number of breaks per day."""
     # Make sure you're currently taking a break; can't resume if you were not taking a break
@@ -360,19 +361,19 @@ def resumeTracking(con):
     if lastType != ACT_BREAK:
         error(randomMessage(MSG_ERR_NOT_BREAKING, lastType), None)
 
-    resumeTime = datetime.now()
+    resumeTime = datetime.now() + timedelta(minutes=offset)
     addEntry(con, ACT_RESUME, resumeTime)
     message(randomMessage(MSG_SUCCESS_RESUME, resumeTime, lastTime))
 
 
-def endTracking(con):
+def endTracking(con, offset=0):
     """End tracking for the day. Records the time of your leave."""
     # Make sure you've actually been at work. Can't leave if you're not even here!
     lastType = getLastType(con)
     if lastType not in [ACT_ARRIVE, ACT_RESUME]:
         error(randomMessage(MSG_ERR_NOT_WORKING, lastType), None)
 
-    leaveTime = datetime.now()
+    leaveTime = datetime.now() + timedelta(minutes=offset)
     addEntry(con, ACT_LEAVE, leaveTime)
     message(randomMessage(MSG_SUCCESS_LEAVE, leaveTime))
 
@@ -402,33 +403,50 @@ def getEntries(con, d):
 def getWorkTimeForDay(con, d=date.today()):
     summaryTime = timedelta(0)
     arrival = None
+    arrivedAt = None
+    breakTime = timedelta(0)
+    breakEnd = None
+    leftAt = datetime.now()
     for type, ts in getEntries(con, d):
         if not arrival:
             if type not in [ACT_ARRIVE, ACT_RESUME]:
                 error(f"Expected arrival while computing presence time, got {type} at {ts}", None)
             arrival = ts
+            if not arrivedAt:
+                arrivedAt = ts
+            if breakEnd:
+                breakTime += ts - breakEnd
+                breakEnd = None
         else:
             if type not in [ACT_BREAK, ACT_LEAVE]:
                 error(f"Expected break/leave while computing presence time, got {type} at {ts}", None)
             summaryTime += ts - arrival
             arrival = None
+            leftAt = breakEnd = ts
     if arrival:
         # open end
         summaryTime += datetime.now() - arrival
 
-    return (arrival is not None, summaryTime)
+    return arrival is not None, summaryTime, arrivedAt, leftAt, breakTime
 
 
 def dayStatistics(con, offset=0):
     headerPrinted = False
     targetDay = date.today() + timedelta(days=offset)
+    totalBreak, extraMsg = None, ""
     for type, ts in getEntries(con, targetDay):
         if not headerPrinted:
             message("Time tracking entries for {:%d.%m.%Y}:".format(targetDay))
             headerPrinted = True
-        message("  {:<10} {:%d.%m.%Y %H:%M}".format(type, ts))
+        if type == ACT_BREAK:
+            totalBreak = ts
+        elif type == ACT_RESUME and totalBreak is not None:
+            extraMsg = " ({})".format(str(ts - totalBreak).split(".")[0])
+            totalBreak = None
+        message("  {:<10} {:%d.%m.%Y %H:%M}{}".format(type, ts, extraMsg))
+        extraMsg = ""
 
-    currentlyHere, totalTime = getWorkTimeForDay(con)
+    currentlyHere, totalTime, *_ = getWorkTimeForDay(con)
     if currentlyHere:
         message("You are currently at work.")
     message(
@@ -436,6 +454,89 @@ def dayStatistics(con, offset=0):
             int(totalTime.total_seconds() // (60 * 60)), int((totalTime.total_seconds() % 3600) // 60)
         )
     )
+    time_left = timedelta(hours=DAY_HOURS) - totalTime
+    leave_time = datetime.now() + time_left
+    message("A good time to leave would be at {}".format((leave_time).strftime("%H:%M")))
+
+
+def monthStatistics(con, offset=0):
+    today = date.today()
+    weekOfMonth = (today.day - 1) // 7 + 1
+    startOfMonth = today.replace(day=1) + timedelta(weeks=4 * offset)
+    message(startOfMonth.strftime("Statistics for %B %Y"))
+
+    current = startOfMonth
+    dailyHours = timedelta(hours=float(WEEK_HOURS) / 5.0)
+    monthTotal = timedelta(seconds=0)
+    extraHours = timedelta(seconds=0)
+    daysSoFar = 0
+
+    headerPrinted = False
+    currentlyHere = False
+
+    while current.month == startOfMonth.month:
+        try:
+            currentlyHere, timeForDay, arrivedAt, leftAt, breakTime = getWorkTimeForDay(con, current)
+            daysSoFar += 1
+            totalHours = int(timeForDay.total_seconds() // (60 * 60))
+            totalMinutes = int((timeForDay.total_seconds() % 3600) // 60)
+
+            timedeltaForDay = timeForDay - dailyHours
+            timedeltaHours = timedeltaForDay.total_seconds() / (60 * 60)
+
+            monthTotal += timeForDay
+            extraHours += timedeltaForDay
+
+            if not headerPrinted:
+                headerPrinted = True
+                message("   date        work  diff  arriv left  break")
+                message("   ----------  ----- ----- ----- ----- -----")
+            breakHours = int(breakTime.total_seconds() // (60 * 60))
+            breakMinutes = int((breakTime.total_seconds() % 3600) // 60)
+            message(
+                f" * {current:%d.%m.%Y} {totalHours:>2d}h{totalMinutes:>02d}m {timedeltaHours:=+1.2f}"
+                f" {arrivedAt:%H:%M} {leftAt:%H:%M} {breakHours:02d}:{breakMinutes:02d}"
+            )
+        except ProgramAbortError:
+            if current.weekday() < 5:
+                # For non-weekend days, print a message
+                if not headerPrinted:
+                    headerPrinted = True
+                    message("   date        work  diff  arriv left  break")
+                    message("   ----------  ----- ----- ----- ----- -----")
+                message(f"  {current:%d.%m.%Y}    -              -")
+
+        current += timedelta(days=1)
+
+    weekTotalHours = int(monthTotal.total_seconds() // (60 * 60))
+    weekTotalMinutes = int((monthTotal.total_seconds() % 3600) // 60)
+    weekExtraHours = extraHours.total_seconds() / (60 * 60)
+    message("   ----------  ----- ----- ----- ----- -----")
+
+    if daysSoFar < 5:
+        # The week isn't over, compare your current state against the ideal rate
+        expectation = dailyHours * daysSoFar
+        expectationHours = int(expectation.total_seconds() // (60 * 60))
+        expectationMinutes = int((expectation.total_seconds() % 3600) // 60)
+        message("   Expected:   {:>2d} h {:>02d} min".format(expectationHours, expectationMinutes))
+    week_number = startOfMonth.isocalendar()[1]
+    message(
+        f"    Week {week_number:>02d}:   {weekTotalHours:>2d} h {weekTotalMinutes:>02d} min    {weekExtraHours:=+2.2f}"
+    )
+    if daysSoFar < 5 or (daysSoFar == 5 and currentlyHere):
+        # Calculate avg. remaining work time per day
+        totalExpectation = timedelta(hours=WEEK_HOURS)
+        remaining = totalExpectation - monthTotal
+        remainingHours = int(remaining.total_seconds() // (60 * 60))
+        remainingMinutes = int((remaining.total_seconds() % 3600) // 60)
+        message("  ----------   -----------   ------")
+        message(f"  Remaining:   {remainingHours:>2d} h {remainingMinutes:>02d} min")
+        if daysSoFar < 4:
+            # Remaining per day
+            remainingPerDay = remaining / (5 - daysSoFar)
+            remainingPerDayHours = int(remainingPerDay.total_seconds() // (60 * 60))
+            remainingPerDayMinutes = int((remainingPerDay.total_seconds() % 3600) // 60)
+            message(f"      Daily:   {remainingPerDayHours:>2d} h {remainingPerDayMinutes:>02d} min")
 
 
 def weekStatistics(con, offset=0):
@@ -455,7 +556,7 @@ def weekStatistics(con, offset=0):
 
     while current < endOfWeek:
         try:
-            currentlyHere, timeForDay = getWorkTimeForDay(con, current)
+            currentlyHere, timeForDay, arrivedAt, leftAt, breakTime = getWorkTimeForDay(con, current)
             daysSoFar += 1
             totalHours = int(timeForDay.total_seconds() // (60 * 60))
             totalMinutes = int((timeForDay.total_seconds() % 3600) // 60)
@@ -468,16 +569,21 @@ def weekStatistics(con, offset=0):
 
             if not headerPrinted:
                 headerPrinted = True
-                message("   date         hours         diff ")
-                message("  ----------   -----------   ------")
-            message(f"  {current:%d.%m.%Y}   {totalHours:>2d} h {totalMinutes:>02d} min    {timedeltaHours:=+1.2f}")
+                message("   date        work  diff  arriv left  break")
+                message("   ----------  ----- ----- ----- ----- -----")
+            breakHours = int(breakTime.total_seconds() // (60 * 60))
+            breakMinutes = int((breakTime.total_seconds() % 3600) // 60)
+            message(
+                f" * {current:%d.%m.%Y} {totalHours:>2d}h{totalMinutes:>02d}m {timedeltaHours:=+1.2f}"
+                f" {arrivedAt:%H:%M} {leftAt:%H:%M} {breakHours:02d}:{breakMinutes:02d}"
+            )
         except ProgramAbortError:
             if current.weekday() < 5:
                 # For non-weekend days, print a message
                 if not headerPrinted:
                     headerPrinted = True
-                    message("   date         hours         diff ")
-                    message("  ----------   -----------   ------")
+                    message("   date        work  diff  arriv left  break")
+                    message("   ----------  ----- ----- ----- ----- -----")
                 message(f"  {current:%d.%m.%Y}    -              -")
 
         current += timedelta(days=1)
@@ -485,7 +591,7 @@ def weekStatistics(con, offset=0):
     weekTotalHours = int(weekTotal.total_seconds() // (60 * 60))
     weekTotalMinutes = int((weekTotal.total_seconds() % 3600) // 60)
     weekExtraHours = extraHours.total_seconds() / (60 * 60)
-    message("  ----------   -----------   ------")
+    message("   ----------  ----- ----- ----- ----- -----")
 
     if daysSoFar < 5:
         # The week isn't over, compare your current state against the ideal rate
@@ -533,7 +639,7 @@ def overallStatistics(con, weeks):
 
     while current <= endOfPeriod:
         try:
-            _, timeForDay = getWorkTimeForDay(con, current)
+            _, timeForDay, *_ = getWorkTimeForDay(con, current)
             total += timeForDay
             if current.weekday() < 5:  # Not working normally on Saturday and Sunday
                 expected += dailyHours
@@ -556,68 +662,90 @@ def overallStatistics(con, weeks):
     message(f"    Diff: {diffHoursStr:>4s} h {diffMinutes:>02d} min")
 
 
-parser = argparse.ArgumentParser(description="Track your work time")
+def main():
+    parser = argparse.ArgumentParser(description="Track your work time")
 
-commands = parser.add_subparsers(title="subcommands", dest="action", help="description", metavar="action")
-parser_morning = commands.add_parser("morning", help="Start a new day")
-parser_break = commands.add_parser("break", help="Take a break from working")
-parser_resume = commands.add_parser("resume", help="Resume working")
-parser_continue = commands.add_parser("continue", help='Resume working, alias of "resume"')
-parser_closing = commands.add_parser("closing", help="End your work day")
-parser_day = commands.add_parser("day", help="Print daily statistics")
-parser_day.add_argument(
-    "offset",
-    nargs="?",
-    default=0,
-    type=int,
-    help="Offset in days to the current one to analyze. Note only negative values make sense here.",
-)
-parser_week = commands.add_parser("week", help="Print weekly statistics")
-parser_week.add_argument(
-    "offset",
-    nargs="?",
-    default=0,
-    type=int,
-    help="Offset in weeks to the current one to analyze. Note only negative values make sense here.",
-)
-parser_summary = commands.add_parser("summary", help="Print overall statistics")
-parser_summary.add_argument(
-    "weeks",
-    nargs="?",
-    type=int,
-    default=None,
-    help="Number of weeks to include in summary",
-)
+    commands = parser.add_subparsers(title="subcommands", dest="action", help="description", metavar="action")
+    parser_morning = commands.add_parser("morning", help="Start a new day")
+    parser_break = commands.add_parser("break", help="Take a break from working")
+    parser_resume = commands.add_parser("resume", help="Resume working")
+    parser_continue = commands.add_parser("continue", help='Resume working, alias of "resume"')
+    parser_closing = commands.add_parser("closing", help="End your work day")
+    for subparser in [parser_morning, parser_break, parser_resume, parser_continue, parser_closing]:
+        subparser.add_argument(
+            "offset",
+            nargs="?",
+            default=0,
+            type=int,
+            help="Offset in minutes if you arrived but only now remembered to use this tool.",
+        )
+    parser_day = commands.add_parser("day", help="Print daily statistics")
+    parser_day.add_argument(
+        "offset",
+        nargs="?",
+        default=0,
+        type=int,
+        help="Offset in days to the current one to analyze. Note only negative values make sense here.",
+    )
+    parser_week = commands.add_parser("week", help="Print weekly statistics")
+    parser_week.add_argument(
+        "offset",
+        nargs="?",
+        default=0,
+        type=int,
+        help="Offset in weeks to the current one to analyze. Note only negative values make sense here.",
+    )
+    parser_month = commands.add_parser("month", help="Print monthly statistics")
+    parser_month.add_argument(
+        "offset",
+        nargs="?",
+        default=0,
+        type=int,
+        help="Offset in months to the current one to analyze. Note only negative values make sense here.",
+    )
+    parser_summary = commands.add_parser("summary", help="Print overall statistics")
+    parser_summary.add_argument(
+        "weeks",
+        nargs="?",
+        type=int,
+        default=None,
+        help="Number of weeks to include in summary",
+    )
 
-args = parser.parse_args()
+    args = parser.parse_args()
 
-actions: dict[str, tuple[Callable, list[str]]] = {
-    "morning": (startTracking, []),
-    "break": (suspendTracking, []),
-    "resume": (resumeTracking, []),
-    "continue": (resumeTracking, []),
-    "day": (dayStatistics, ["offset"]),
-    "week": (weekStatistics, ["offset"]),
-    "summary": (overallStatistics, ["weeks"]),
-    "closing": (endTracking, []),
-}
+    actions: dict[str, tuple[Callable, list[str]]] = {
+        "morning": (startTracking, ["offset"]),
+        "break": (suspendTracking, ["offset"]),
+        "resume": (resumeTracking, ["offset"]),
+        "continue": (resumeTracking, ["offset"]),
+        "closing": (endTracking, ["offset"]),
+        "day": (dayStatistics, ["offset"]),
+        "week": (weekStatistics, ["offset"]),
+        "month": (monthStatistics, ["offset"]),
+        "summary": (overallStatistics, ["weeks"]),
+    }
 
-if args.action not in actions:
-    message(f'Unsupported action "{args.action}". Use --help to get usage information.')
-    sys.exit(1)
+    if args.action not in actions:
+        message(f'Unsupported action "{args.action}". Use --help to get usage information.')
+        sys.exit(1)
 
-try:
-    connection = dbSetup()
-    extraArgs = {}
-    handler, extraArgNames = actions[args.action]
-    for extraArgName in extraArgNames:
-        if extraArgName in args:
-            extraArgs[extraArgName] = getattr(args, extraArgName)
-    handler(connection, **extraArgs)
-    sys.exit(0)
-except ProgramAbortError as e:
-    print(str(e), file=sys.stderr)
-    sys.exit(1)
-except KeyboardInterrupt as e:
-    print()
-    sys.exit(255)
+    try:
+        connection = dbSetup()
+        extraArgs = {}
+        handler, extraArgNames = actions[args.action]
+        for extraArgName in extraArgNames:
+            if extraArgName in args:
+                extraArgs[extraArgName] = getattr(args, extraArgName)
+        handler(connection, **extraArgs)
+        sys.exit(0)
+    except ProgramAbortError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
+    except KeyboardInterrupt as e:
+        print()
+        sys.exit(255)
+
+
+if __name__ == "__main__":
+    main()
