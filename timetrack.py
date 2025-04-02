@@ -463,8 +463,7 @@ def dayStatistics(con, offset=0):
 
 def monthStatistics(con, offset=0):
     today = date.today()
-    weekOfMonth = (today.day - 1) // 7 + 1
-    startOfMonth = today.replace(day=1) + timedelta(weeks=4 * offset)
+    startOfMonth = (today + timedelta(weeks=4 * offset)).replace(day=1)
     message(startOfMonth.strftime("Statistics for %B %Y"))
 
     current = startOfMonth
