@@ -424,9 +424,11 @@ def getWorkTimeForDay(con, d=date.today()):
             arrival = None
             leftAt = breakEnd = ts
     if arrival:
-        # open end
-        summaryTime += datetime.now() - arrival
-
+        leftAt = datetime.now()
+    arrivedAt = arrivedAt.replace(second=0, microsecond=0)
+    leftAt = leftAt.replace(second=0, microsecond=0)
+    breakTime = timedelta(minutes=breakTime.total_seconds() // 60)
+    summaryTime = leftAt - arrivedAt - breakTime
     return arrival is not None, summaryTime, arrivedAt, leftAt, breakTime
 
 
